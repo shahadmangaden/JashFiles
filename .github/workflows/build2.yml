@@ -1,0 +1,29 @@
+name: Build APK v2
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -q JashFiles.zip -d src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build APK
+        working-directory: src/JashFiles
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew assembleDebug --continue 2>&1 | tee build.log
+      - name: Show errors
+        if: failure()
+        working-directory: src/JashFiles
+        run: |
+          grep -E "^e: |What went wrong|error:|ERROR" -A4 build.log | head -200 > errors.txt || true
+          { echo '```'; cat errors.txt; echo '```'; } >> $GITHUB_STEP_SUMMARY
+          grep -E "^e: " build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JashFiles-APK
+          path: src/JashFiles/app/build/outputs/apk/debug/*.apk
