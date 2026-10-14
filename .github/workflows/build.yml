@@ -1,0 +1,21 @@
+name: Build Jash Files APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -q JashFiles.zip -d src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build APK
+        working-directory: src/JashFiles
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JashFiles-APK
+          path: src/JashFiles/app/build/outputs/apk/release/*.apk
