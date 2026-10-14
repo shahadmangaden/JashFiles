@@ -1,0 +1,34 @@
+name: Toolkit
+on:
+  push:
+    paths: ['.github/workflows/toolkit.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  kit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -q JashFiles.zip -d src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build once with extra libraries
+        working-directory: src/JashFiles
+        run: |
+          sed -i 's#^dependencies {#dependencies {\n    implementation("commons-net:commons-net:3.11.1")\n    implementation("org.nanohttpd:nanohttpd:2.3.1")\n    implementation("com.hierynomus:smbj:0.13.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")#' app/build.gradle.kts
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon || true
+      - name: Pack
+        run: |
+          cd ~ && tar -czf $GITHUB_WORKSPACE/gradle-kit.tar.gz .gradle/caches/modules-2 || true
+          cd $ANDROID_HOME && tar -czf $GITHUB_WORKSPACE/sdk-kit.tar.gz platforms/android-35 build-tools/34.0.0 build-tools/35.0.0 licenses || true
+          ls -la $GITHUB_WORKSPACE/*.tar.gz
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete toolkit --yes --cleanup-tag || true
+          gh release create toolkit gradle-kit.tar.gz sdk-kit.tar.gz --title toolkit --notes "Build tools for Claude" --prerelease
